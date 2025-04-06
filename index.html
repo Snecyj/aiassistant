@@ -37,11 +37,12 @@
       </div>
     </div>
 
-   <div class="relative overflow-hidden rounded-lg border my-4 bg-gray-100" style="padding-top: 56.25%">
-      <video id="mediaElement" 
-             class="absolute top-0 left-0 w-full h-full object-cover" 
-             autoplay></video>
-    </div>
+<div class="relative overflow-hidden rounded-lg border my-4 bg-gray-100" style="padding-top: 56.25%">
+  <video id="mediaElement" 
+         class="absolute top-0 left-0 w-full h-full object-cover" 
+         autoplay></video>
+  <!-- Кнопка будет добавляться сюда автоматически при ошибке -->
+</div>
     
     <div id="status" class="p-2 bg-gray-50 border border-gray-300 rounded-md h-[80px] overflow-y-auto font-mono text-sm"></div>
   </div>
@@ -103,12 +104,47 @@ if (!navigator.mediaDevices || !window.MediaStream) {
       sessionInfo = (await res.json()).data;
 
       room = new LivekitClient.Room();
-      room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
-        mediaStream.addTrack(track.mediaStreamTrack);
-        if (mediaStream.getVideoTracks().length && mediaStream.getAudioTracks().length) {
-          mediaElement.srcObject = mediaStream;
-        }
-      });
+room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
+  mediaStream.addTrack(track.mediaStreamTrack);
+  
+  if (mediaStream.getVideoTracks().length && mediaStream.getAudioTracks().length) {
+    mediaElement.srcObject = mediaStream;
+    
+    // Добавляем обработчик воспроизведения
+    const handlePlay = async () => {
+      try {
+        await mediaElement.play();
+        // Убираем кнопку при успешном воспроизведении
+        const playButton = document.getElementById('manualPlayBtn');
+        if (playButton) playButton.remove();
+      } catch (e) {
+        updateStatus(`Playback error: ${e}`);
+        addManualPlayButton();
+      }
+    };
+
+    // Создаем кнопку для ручного запуска
+    const addManualPlayButton = () => {
+      if (!document.getElementById('manualPlayBtn')) {
+        const btn = document.createElement('button');
+        btn.id = 'manualPlayBtn';
+        btn.className = 'absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 ' +
+                         'px-4 py-2 bg-red-500 text-white rounded-lg shadow-lg hover:bg-red-600';
+        btn.textContent = 'Click to Play';
+        btn.onclick = handlePlay;
+        
+        // Добавляем кнопку в контейнер видео
+        mediaElement.parentElement.appendChild(btn);
+      }
+    };
+
+    // Первоначальная попытка воспроизведения
+    handlePlay().catch(e => {
+      updateStatus(`Initial playback failed: ${e}`);
+      addManualPlayButton();
+    });
+  }
+});
       mediaStream = new MediaStream();
       await room.prepareConnection(sessionInfo.url, sessionInfo.access_token);
       await connectWebSocket(sessionInfo.session_id);
@@ -200,14 +236,8 @@ if (!navigator.mediaDevices || !window.MediaStream) {
     };
 
 startBtn.onclick = async () => {
-  try {
-    await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    updateStatus("Permissions granted");
     await createSession();
     await startStreaming();
-  } catch (error) {
-    updateStatus(`Error: ${error.message}`);
-  }
 };
 
     talkBtn.onclick = () => {
