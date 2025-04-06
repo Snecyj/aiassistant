@@ -199,7 +199,7 @@ room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
       const vol = data.reduce((a, b) => a + b, 0) / data.length;
 
       if (isVoiceOn) {
-        if (vol > 5) {
+        if (vol > 20) {
           silenceCounter = 0;
           if (!recording) {
             recording = true;
@@ -208,7 +208,7 @@ room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
           }
         } else if (recording) {
           silenceCounter++;
-          if (silenceCounter > 15) {
+          if (silenceCounter > 25) {
             recording = false;
             mediaRecorder.stop();
           }
