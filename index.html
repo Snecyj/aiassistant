@@ -7,34 +7,50 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    #volumeBar {
-      height: 10px;
-      background: green;
-      margin-top: 5px;
-      transition: width 0.1s;
+    #mediaElement {
+      object-position: center 90%; /* Смещаем точку фокусировки вниз */
+	  transform: translateY(10%) scale(1.2);
+    }
+    
+    @media (min-width: 768px) {
+      #mediaElement {
+        object-position: center 90%; /* Меньшее смещение для десктопов */
+	    transform: translateY(10%) scale(1.2);
+      }
     }
   </style>
 </head>
-<body class="bg-gray-100 p-5 font-sans">
-  <div class="max-w-3xl mx-auto bg-white p-5 rounded-lg shadow-md">
-    <div class="flex flex-wrap gap-2.5 mb-5">
-      <button id="startBtn" class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed">Start</button>
-      <div class="flex flex-col flex-1 min-w-[200px]">
-        <input id="taskInput" type="text" placeholder="Enter text to speak" class="p-2 border border-gray-300 rounded-md" disabled />
-        <div class="flex items-center gap-2 mt-2">
-          <div id="volumeBar" style="width: 0%"></div>
-          <div id="volumeDisplay" class="text-sm text-gray-600">Volume: 0</div>
+<body class="bg-gray-100 p-3 font-sans">
+  <div class="max-w-3xl mx-auto bg-white p-4 rounded-lg shadow-md">
+    <div class="flex flex-col gap-3 mb-4">
+      <div class="flex gap-2">
+        <button id="startBtn" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed">Start</button>
+      </div>
+      
+      <div class="flex flex-col gap-2">
+        <input id="taskInput" type="text" placeholder="Enter text to speak" 
+               class="w-full p-2 border border-gray-300 rounded-md" disabled />
+        <div class="flex gap-2">
+          <button id="talkBtn" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:opacity-50" disabled>Talk</button>
+		  <button id="voiceBtn" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50" disabled>🎤 Voice</button>
         </div>
       </div>
-      <button id="talkBtn" class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:opacity-50" disabled>Talk</button>
-      <button id="voiceBtn" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50" disabled>🎤 Voice</button>
     </div>
-    <div class="relative h-[400px] overflow-hidden rounded-lg border my-5 bg-gray-100">
-      <video id="mediaElement" class="absolute min-h-full min-w-full w-auto h-auto left-1/2 -translate-x-1/2 origin-top scale-150 translate-y-[0%]" autoplay></video>
+
+   <div class="relative overflow-hidden rounded-lg border my-4 bg-gray-100" style="padding-top: 56.25%">
+      <video id="mediaElement" 
+             class="absolute top-0 left-0 w-full h-full object-cover" 
+             autoplay></video>
     </div>
-    <div id="status" class="p-2.5 bg-gray-50 border border-gray-300 rounded-md h-[100px] overflow-y-auto font-mono text-sm"></div>
+    
+    <div id="status" class="p-2 bg-gray-50 border border-gray-300 rounded-md h-[80px] overflow-y-auto font-mono text-sm"></div>
   </div>
+
   <script>
+if (!navigator.mediaDevices || !window.MediaStream) {
+  updateStatus("WebRTC not supported in this browser");
+  startBtn.disabled = true;
+}
     const API_CONFIG = {
       apiKey: "ZDZkNzg5OWVjMmY3NGVjYWIzODNhZjkxZjZlNzkxMDMtMTczODY4MzA1Mw==",
       serverUrl: "https://api.heygen.com",
@@ -151,9 +167,6 @@
       const data = new Uint8Array(analyser.frequencyBinCount);
       analyser.getByteFrequencyData(data);
       const vol = data.reduce((a, b) => a + b, 0) / data.length;
-      document.getElementById('volumeDisplay').textContent = `Volume: ${vol.toFixed(1)}`;
-      document.getElementById('volumeBar').style.width = `${Math.min(100, vol * 2)}%`;
-      document.getElementById('volumeBar').style.background = vol > 10 ? 'red' : 'green';
 
       if (isVoiceOn) {
         if (vol > 5) {
