@@ -199,10 +199,16 @@ if (!navigator.mediaDevices || !window.MediaStream) {
       checkVolume();
     };
 
-    startBtn.onclick = async () => {
-      await createSession();
-      await startStreaming();
-    };
+startBtn.onclick = async () => {
+  try {
+    await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    updateStatus("Permissions granted");
+    await createSession();
+    await startStreaming();
+  } catch (error) {
+    updateStatus(`Error: ${error.message}`);
+  }
+};
 
     talkBtn.onclick = () => {
       const text = taskInput.value.trim();
