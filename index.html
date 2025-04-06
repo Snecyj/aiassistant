@@ -8,14 +8,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     #mediaElement {
-      object-position: center 90%; /* Смещаем точку фокусировки вниз */
-	  transform: translateY(10%) scale(1.2);
+      object-position: center 90%;
+      transform: translateY(10%) scale(1.2);
     }
     
     @media (min-width: 768px) {
       #mediaElement {
-        object-position: center 90%; /* Меньшее смещение для десктопов */
-	    transform: translateY(10%) scale(1.2);
+        object-position: center 90%;
+        transform: translateY(10%) scale(1.2);
       }
     }
   </style>
@@ -32,17 +32,16 @@
                class="w-full p-2 border border-gray-300 rounded-md" disabled />
         <div class="flex gap-2">
           <button id="talkBtn" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:opacity-50" disabled>Talk</button>
-		  <button id="voiceBtn" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50" disabled>🎤 Voice</button>
+          <button id="voiceBtn" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50" disabled>🎤 Voice</button>
         </div>
       </div>
     </div>
 
-<div class="relative overflow-hidden rounded-lg border my-4 bg-gray-100" style="padding-top: 56.25%">
-  <video id="mediaElement" 
-         class="absolute top-0 left-0 w-full h-full object-cover" 
-         autoplay></video>
-  <!-- Кнопка будет добавляться сюда автоматически при ошибке -->
-</div>
+    <div class="relative overflow-hidden rounded-lg border my-4 bg-gray-100" style="padding-top: 56.25%">
+      <video id="mediaElement" 
+             class="absolute top-0 left-0 w-full h-full object-cover" 
+             autoplay></video>
+    </div>
     
     <div id="status" class="p-2 bg-gray-50 border border-gray-300 rounded-md h-[80px] overflow-y-auto font-mono text-sm"></div>
   </div>
@@ -110,11 +109,9 @@ room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
   if (mediaStream.getVideoTracks().length && mediaStream.getAudioTracks().length) {
     mediaElement.srcObject = mediaStream;
     
-    // Добавляем обработчик воспроизведения
     const handlePlay = async () => {
       try {
         await mediaElement.play();
-        // Убираем кнопку при успешном воспроизведении
         const playButton = document.getElementById('manualPlayBtn');
         if (playButton) playButton.remove();
       } catch (e) {
@@ -123,7 +120,6 @@ room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
       }
     };
 
-    // Создаем кнопку для ручного запуска
     const addManualPlayButton = () => {
       if (!document.getElementById('manualPlayBtn')) {
         const btn = document.createElement('button');
@@ -133,12 +129,10 @@ room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
         btn.textContent = 'Click to Play';
         btn.onclick = handlePlay;
         
-        // Добавляем кнопку в контейнер видео
         mediaElement.parentElement.appendChild(btn);
       }
     };
 
-    // Первоначальная попытка воспроизведения
     handlePlay().catch(e => {
       updateStatus(`Initial playback failed: ${e}`);
       addManualPlayButton();
@@ -235,10 +229,74 @@ room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
       checkVolume();
     };
 
-startBtn.onclick = async () => {
-    await createSession();
-    await startStreaming();
-};
+  let isSessionActive = false; // Add session state flag
+
+    const stopSession = async () => {
+      if (!sessionInfo) return;
+      try {
+        await fetch(`${API_CONFIG.serverUrl}/v1/streaming.stop`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
+          body: JSON.stringify({ session_id: sessionInfo.session_id })
+        });
+        
+        if (webSocket) webSocket.close();
+        if (room) room.disconnect();
+        if (mediaStream) {
+          mediaStream.getTracks().forEach(track => track.stop());
+          mediaElement.srcObject = null;
+        }
+        
+        // Clean up elements
+        const playButton = document.getElementById('manualPlayBtn');
+        if (playButton) playButton.remove();
+        
+        // Reset state
+        sessionInfo = null;
+        sessionToken = null;
+        webSocket = null;
+        room = null;
+        mediaStream = null;
+        
+        updateStatus("Session stopped");
+        enableControls(false);
+      } catch (e) {
+        updateStatus(`Error stopping session: ${e}`);
+      }
+    };
+
+    startBtn.onclick = async () => {
+      if (!isSessionActive) {
+        try {
+						  startBtn.disabled = true;
+          await createSession();
+          await startStreaming();
+		  		  startBtn.disabled = false;
+          isSessionActive = true;
+          startBtn.textContent = 'Stop';
+          startBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
+          startBtn.classList.add('bg-red-500', 'hover:bg-red-600');
+        } catch (e) {
+          updateStatus(`Error starting session: ${e}`);
+          isSessionActive = false;
+          startBtn.textContent = 'Start';
+          startBtn.classList.remove('bg-red-500', 'hover:bg-red-600');
+          startBtn.classList.add('bg-green-500', 'hover:bg-green-600');
+        }
+      } else {
+        try {
+				  startBtn.disabled = true;
+          await stopSession();
+		  startBtn.disabled = false;
+          isSessionActive = false;
+          startBtn.textContent = 'Start';
+          startBtn.classList.remove('bg-red-500', 'hover:bg-red-600');
+          startBtn.classList.add('bg-green-500', 'hover:bg-green-600');
+        } catch (e) {
+          updateStatus(`Error stopping session: ${e}`);
+        }
+      }
+    };
 
     talkBtn.onclick = () => {
       const text = taskInput.value.trim();
@@ -253,16 +311,7 @@ startBtn.onclick = async () => {
     };
 
     window.addEventListener('beforeunload', () => {
-      if (!sessionInfo) return;
-      fetch(`${API_CONFIG.serverUrl}/v1/streaming.stop`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
-        body: JSON.stringify({ session_id: sessionInfo.session_id }),
-        keepalive: true
-      });
-      if (webSocket) webSocket.close();
-      if (room) room.disconnect();
-      mediaElement.srcObject = null;
+      if (isSessionActive) stopSession();
     });
   </script>
 </body>
