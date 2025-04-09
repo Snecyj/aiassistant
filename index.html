@@ -88,7 +88,7 @@ if (!navigator.mediaDevices || !window.MediaStream) {
     };
 
     const connectWebSocket = async (sessionId) => {
-      const wsUrl = `wss://${new URL(API_CONFIG.serverUrl).hostname}/v1/ws/streaming.chat?session_id=${sessionId}&session_token=${sessionToken}`;
+      const wsUrl = `wss://${new URL(API_CONFIG.serverUrl).hostname}/v1/ws/streaming.chat?session_id=${sessionId}&session_token=${sessionToken}&opening_text=Hi, my name is Li Chen. I'm 30 years old and I live in Shanghai, China. A few years ago, I was diagnosed with multiple myeloma — a type of blood cancer I had never even heard of before. It started with bone pain, fatigue, and frequent infections. The diagnosis was shocking. I went through several treatments, some worked, some didn’t. But recently, I started a new therapy with Talvey — and it’s been a game-changer. I finally feel like I have hope again. I’d like to share my journey with you.`;
       webSocket = new WebSocket(wsUrl);
       webSocket.onmessage = (e) => console.log("WS:", JSON.parse(e.data));
     };
@@ -98,7 +98,7 @@ if (!navigator.mediaDevices || !window.MediaStream) {
       const res = await fetch(`${API_CONFIG.serverUrl}/v1/streaming.new`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
-        body: JSON.stringify({ quality: "high", avatar_name: "Dexter_Lawyer_Sitting_public", voice: { rate: 1.0 }, version: "v2", video_encoding: "H264" })
+         body: JSON.stringify({ quality: "high", avatar_name: "Wayne_20240711", knowledge_base_id: "daa689c65f6e406bae044751e5bbf2a8", stt_language: "eng", voice: { rate: 1.0 }, version: "v2", video_encoding: "H264" })
       });
       sessionInfo = (await res.json()).data;
 
