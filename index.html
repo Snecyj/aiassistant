@@ -22,11 +22,7 @@
 </head>
 <body class="bg-gray-100 p-3 font-sans">
   <div class="max-w-3xl mx-auto bg-white p-4 rounded-lg shadow-md">
-    <div class="flex flex-col gap-3 mb-4">
-      <div class="flex gap-2">
-        <button id="startBtn" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed">Start</button>
-      </div>
-      
+    <div class="flex flex-col gap-3 mb-4">      
       <div class="flex flex-col gap-2">
         <input id="taskInput" type="text" placeholder="Enter text to speak" 
                class="w-full p-2 border border-gray-300 rounded-md" disabled />
@@ -49,7 +45,6 @@
   <script>
 if (!navigator.mediaDevices || !window.MediaStream) {
   updateStatus("WebRTC not supported in this browser");
-  startBtn.disabled = true;
 }
     const API_CONFIG = {
       apiKey: "ZDZkNzg5OWVjMmY3NGVjYWIzODNhZjkxZjZlNzkxMDMtMTczODY4MzA1Mw==",
@@ -60,7 +55,6 @@ if (!navigator.mediaDevices || !window.MediaStream) {
     let sessionToken, sessionInfo, room, webSocket, mediaStream;
     let audioContext, analyser, mediaRecorder, isVoiceOn = false, recording = false, audioChunks = [], silenceCounter = 0;
 
-    const startBtn = document.getElementById("startBtn");
     const talkBtn = document.getElementById("talkBtn");
     const voiceBtn = document.getElementById("voiceBtn");
     const taskInput = document.getElementById("taskInput");
@@ -154,6 +148,7 @@ room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
       await room.connect(sessionInfo.url, sessionInfo.access_token);
       enableControls(true);
       updateStatus("Streaming started");
+	  startVoiceAutomatically();
     };
 
     const sendText = async (text) => {
@@ -265,38 +260,27 @@ room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
       }
     };
 
-    startBtn.onclick = async () => {
+    async function startSessionAutomatically() {
       if (!isSessionActive) {
         try {
-						  startBtn.disabled = true;
           await createSession();
           await startStreaming();
-		  		  startBtn.disabled = false;
           isSessionActive = true;
-          startBtn.textContent = 'Stop';
-          startBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
-          startBtn.classList.add('bg-red-500', 'hover:bg-red-600');
         } catch (e) {
           updateStatus(`Error starting session: ${e}`);
           isSessionActive = false;
-          startBtn.textContent = 'Start';
-          startBtn.classList.remove('bg-red-500', 'hover:bg-red-600');
-          startBtn.classList.add('bg-green-500', 'hover:bg-green-600');
         }
       } else {
         try {
-				  startBtn.disabled = true;
           await stopSession();
-		  startBtn.disabled = false;
           isSessionActive = false;
-          startBtn.textContent = 'Start';
-          startBtn.classList.remove('bg-red-500', 'hover:bg-red-600');
-          startBtn.classList.add('bg-green-500', 'hover:bg-green-600');
         } catch (e) {
           updateStatus(`Error stopping session: ${e}`);
         }
       }
     };
+	
+	startSessionAutomatically();
 
     talkBtn.onclick = () => {
       const text = taskInput.value.trim();
@@ -304,7 +288,7 @@ room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
       taskInput.value = "";
     };
 
-    voiceBtn.onclick = async () => {
+    async function startVoiceAutomatically() {
       if (!audioContext) await initVoice();
       isVoiceOn = !isVoiceOn;
       voiceBtn.textContent = isVoiceOn ? '🔴 Listening...' : '🎤 Voice';
