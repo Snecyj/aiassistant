@@ -18,10 +18,61 @@
         transform: translateY(10%) scale(1.2);
       }
     }
+    
+    /* Connecting animation styles */
+    .connecting-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      z-index: 10;
+    }
+    
+    .connecting-text {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    
+    .loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body class="bg-gray-100 p-3 font-sans">
   <div class="max-w-3xl mx-auto bg-white p-4 rounded-lg shadow-md">
+    <div class="flex flex-col gap-3 mb-4">
+      <img 
+        src="logo.png" 
+        alt="Логотип" 
+        class="w-[85%] h-auto mx-auto"
+      >
+    </div>
+    <div class="relative overflow-hidden rounded-lg border my-4 bg-gray-100" style="padding-top: 56.25%">
+      <video id="mediaElement" 
+             class="absolute top-0 left-0 w-full h-full object-cover" 
+             autoplay></video>
+      <!-- Connecting overlay -->
+      <div id="connectingOverlay" class="connecting-container">
+        <div class="connecting-text">Connecting...</div>
+        <div class="loading-spinner"></div>
+      </div>
+    </div>
     <div class="flex flex-col gap-3 mb-4">      
       <div class="flex flex-col gap-2">
         <input id="taskInput" type="text" placeholder="Enter text to speak" 
@@ -32,22 +83,15 @@
         </div>
       </div>
     </div>
-
-    <div class="relative overflow-hidden rounded-lg border my-4 bg-gray-100" style="padding-top: 56.25%">
-      <video id="mediaElement" 
-             class="absolute top-0 left-0 w-full h-full object-cover" 
-             autoplay></video>
-    </div>
-    
-    <div id="status" class="p-2 bg-gray-50 border border-gray-300 rounded-md h-[80px] overflow-y-auto font-mono text-sm"></div>
   </div>
 
   <script>
-if (!navigator.mediaDevices || !window.MediaStream) {
-  updateStatus("WebRTC not supported in this browser");
-}
+    if (!navigator.mediaDevices || !window.MediaStream) {
+      updateStatus("WebRTC not supported in this browser");
+    }
+    
     const API_CONFIG = {
-      apiKey: "ZDZkNzg5OWVjMmY3NGVjYWIzODNhZjkxZjZlNzkxMDMtMTczODY4MzA1Mw==",
+      apiKey: "MDQ1ZDgwYzgzNDc1NDRhZjgyYjVlOWI0OWRmYWQ0NGMtMTc0MzEyODU1NA==",
       serverUrl: "https://api.heygen.com",
     };
     const ASSEMBLY_API_KEY = "61bdee1fb59a40359276dfa83b8cb1aa";
@@ -58,18 +102,21 @@ if (!navigator.mediaDevices || !window.MediaStream) {
     const talkBtn = document.getElementById("talkBtn");
     const voiceBtn = document.getElementById("voiceBtn");
     const taskInput = document.getElementById("taskInput");
-    const statusElement = document.getElementById("status");
     const mediaElement = document.getElementById("mediaElement");
+    const connectingOverlay = document.getElementById("connectingOverlay");
 
     const updateStatus = msg => {
-      statusElement.innerHTML += `[${new Date().toLocaleTimeString()}] ${msg}<br>`;
-      statusElement.scrollTop = statusElement.scrollHeight;
+      console.log(`[${new Date().toLocaleTimeString()}] ${msg}`);
     };
 
     const enableControls = (state) => {
       taskInput.disabled = !state;
       talkBtn.disabled = !state;
       voiceBtn.disabled = !state;
+    };
+
+    const showConnecting = (show) => {
+      connectingOverlay.style.display = show ? 'flex' : 'none';
     };
 
     const getSessionToken = async () => {
@@ -82,7 +129,7 @@ if (!navigator.mediaDevices || !window.MediaStream) {
     };
 
     const connectWebSocket = async (sessionId) => {
-      const wsUrl = `wss://${new URL(API_CONFIG.serverUrl).hostname}/v1/ws/streaming.chat?session_id=${sessionId}&session_token=${sessionToken}&opening_text=Hi, my name is Li Chen. I'm 30 years old and I live in Shanghai, China. A few years ago, I was diagnosed with multiple myeloma — a type of blood cancer I had never even heard of before. It started with bone pain, fatigue, and frequent infections. The diagnosis was shocking. I went through several treatments, some worked, some didn’t. But recently, I started a new therapy with Talvey — and it’s been a game-changer. I finally feel like I have hope again. I’d like to share my journey with you.`;
+      const wsUrl = `wss://${new URL(API_CONFIG.serverUrl).hostname}/v1/ws/streaming.chat?session_id=${sessionId}&session_token=${sessionToken}&opening_text=Hello, I'm the virtual CEO of Vostok VR, an award-winning emerging tech agency in Singapore. Feel free to ask about our current and past projects and experiences.`;
       webSocket = new WebSocket(wsUrl);
       webSocket.onmessage = (e) => console.log("WS:", JSON.parse(e.data));
     };
@@ -92,51 +139,50 @@ if (!navigator.mediaDevices || !window.MediaStream) {
       const res = await fetch(`${API_CONFIG.serverUrl}/v1/streaming.new`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
-         body: JSON.stringify({ quality: "high", avatar_name: "Wayne_20240711", knowledge_base_id: "daa689c65f6e406bae044751e5bbf2a8", stt_language: "eng", voice: { rate: 1.0 }, version: "v2", video_encoding: "H264" })
+        body: JSON.stringify({ quality: "high", avatar_name: "b082df383db140ed9a1b0b5c2b193e26", knowledge_base_id: "73d3457499824891b2d75d61ff0f4c54", stt_language: "eng", voice: { rate: 1.0 }, version: "v2", video_encoding: "H264" })
       });
       sessionInfo = (await res.json()).data;
-
-      room = new LivekitClient.Room();
-room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
-  mediaStream.addTrack(track.mediaStreamTrack);
-  
-  if (mediaStream.getVideoTracks().length && mediaStream.getAudioTracks().length) {
-    mediaElement.srcObject = mediaStream;
-    
-    const handlePlay = async () => {
-      try {
-        await mediaElement.play();
-        const playButton = document.getElementById('manualPlayBtn');
-        if (playButton) playButton.remove();
-      } catch (e) {
-        updateStatus(`Playback error: ${e}`);
-        addManualPlayButton();
-      }
+      
+      showConnecting(true); // Show connecting indicator
+      updateStatus("Creating session...");
     };
 
-    const addManualPlayButton = () => {
-      if (!document.getElementById('manualPlayBtn')) {
-        const btn = document.createElement('button');
-        btn.id = 'manualPlayBtn';
-        btn.className = 'absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 ' +
-                         'px-4 py-2 bg-red-500 text-white rounded-lg shadow-lg hover:bg-red-600';
-        btn.textContent = 'Click to Play';
-        btn.onclick = handlePlay;
+    const handleTrackSubscribed = (track) => {
+      mediaStream.addTrack(track.mediaStreamTrack);
+      
+      if (mediaStream.getVideoTracks().length && mediaStream.getAudioTracks().length) {
+        mediaElement.srcObject = mediaStream;
         
-        mediaElement.parentElement.appendChild(btn);
-      }
-    };
+        const handlePlay = async () => {
+          try {
+            await mediaElement.play();
 
-    handlePlay().catch(e => {
-      updateStatus(`Initial playback failed: ${e}`);
-      addManualPlayButton();
-    });
-  }
-});
-      mediaStream = new MediaStream();
-      await room.prepareConnection(sessionInfo.url, sessionInfo.access_token);
-      await connectWebSocket(sessionInfo.session_id);
-      updateStatus("Session created");
+            const playButton = document.getElementById('manualPlayBtn');
+            if (playButton) playButton.remove();
+          } catch (e) {
+            updateStatus(`Playback error: ${e}`);
+            addManualPlayButton();
+          }
+        };
+
+        const addManualPlayButton = () => {
+          if (!document.getElementById('manualPlayBtn')) {
+            const btn = document.createElement('button');
+            btn.id = 'manualPlayBtn';
+            btn.className = 'absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 ' +
+                             'px-4 py-2 bg-red-500 text-white rounded-lg shadow-lg hover:bg-red-600';
+            btn.textContent = 'Click to Play';
+            btn.onclick = handlePlay;
+            
+            mediaElement.parentElement.appendChild(btn);
+          }
+        };
+
+        handlePlay().catch(e => {
+          updateStatus(`Initial playback failed: ${e}`);
+          addManualPlayButton();
+        });
+      }
     };
 
     const startStreaming = async () => {
@@ -145,10 +191,19 @@ room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
         body: JSON.stringify({ session_id: sessionInfo.session_id }),
       });
+      
+      mediaStream = new MediaStream();
+      room = new LivekitClient.Room();
+      room.on(LivekitClient.RoomEvent.TrackSubscribed, handleTrackSubscribed);
+      
+      await room.prepareConnection(sessionInfo.url, sessionInfo.access_token);
+      await connectWebSocket(sessionInfo.session_id);
       await room.connect(sessionInfo.url, sessionInfo.access_token);
+      
       enableControls(true);
+	  showConnecting(false); // Hide connecting indicator when stream starts
       updateStatus("Streaming started");
-	  startVoiceAutomatically();
+      startVoiceAutomatically();
     };
 
     const sendText = async (text) => {
@@ -224,7 +279,7 @@ room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
       checkVolume();
     };
 
-  let isSessionActive = false; // Add session state flag
+    let isSessionActive = false;
 
     const stopSession = async () => {
       if (!sessionInfo) return;
@@ -255,6 +310,7 @@ room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
         
         updateStatus("Session stopped");
         enableControls(false);
+        showConnecting(false);
       } catch (e) {
         updateStatus(`Error stopping session: ${e}`);
       }
@@ -263,12 +319,14 @@ room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
     async function startSessionAutomatically() {
       if (!isSessionActive) {
         try {
+          showConnecting(true);
           await createSession();
           await startStreaming();
           isSessionActive = true;
         } catch (e) {
           updateStatus(`Error starting session: ${e}`);
           isSessionActive = false;
+          showConnecting(false);
         }
       } else {
         try {
@@ -279,8 +337,8 @@ room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
         }
       }
     };
-	
-	startSessionAutomatically();
+    
+    startSessionAutomatically();
 
     talkBtn.onclick = () => {
       const text = taskInput.value.trim();
