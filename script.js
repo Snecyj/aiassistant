@@ -10,6 +10,7 @@ const ASSEMBLY_API_KEY = "61bdee1fb59a40359276dfa83b8cb1aa";
 
 let sessionToken, sessionInfo, room, webSocket, mediaStream;
 let audioContext, analyser, mediaRecorder, isVoiceOn = false, recording = false, audioChunks = [], silenceCounter = 0;
+let isSessionActive = false;
 
 const talkBtn = document.getElementById("talkBtn");
 const voiceBtn = document.getElementById("voiceBtn");
@@ -184,66 +185,118 @@ const checkVolume = () => {
   const data = new Uint8Array(analyser.frequencyBinCount);
   analyser.getByteFrequencyData(data);
   const vol = data.reduce((a, b) => a + b, 0) / data.length;
-  return vol;
+
+  if (isVoiceOn) {
+    if (vol > 10) {
+      silenceCounter = 0;
+      if (!recording) {
+        recording = true;
+        audioChunks = [];
+        mediaRecorder.start();
+      }
+    } else if (recording) {
+      silenceCounter++;
+      if (silenceCounter > 15) {
+        recording = false;
+        mediaRecorder.stop();
+      }
+    }
+  }
+  requestAnimationFrame(checkVolume);
+};
+
+const initVoice = async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioContext = new AudioContext();
+    analyser = audioContext.createAnalyser();
+    const source = audioContext.createMediaStreamSource(stream);
+    source.connect(analyser);
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.onstop = processAudio;
+    checkVolume();
+  } catch (err) {
+    updateStatus(`Microphone error: ${err}`);
+  }
+};
+
+const stopSession = async () => {
+  if (!sessionInfo) return;
+  try {
+    await fetch(`${API_CONFIG.serverUrl}/v1/streaming.stop`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
+      body: JSON.stringify({ session_id: sessionInfo.session_id })
+    });
+    
+    if (webSocket) webSocket.close();
+    if (room) room.disconnect();
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(track => track.stop());
+      mediaElement.srcObject = null;
+    }
+    
+    // Clean up elements
+    const playButton = document.getElementById('manualPlayBtn');
+    if (playButton) playButton.remove();
+    
+    // Reset state
+    sessionInfo = null;
+    sessionToken = null;
+    webSocket = null;
+    room = null;
+    mediaStream = null;
+    
+    updateStatus("Session stopped");
+    enableControls(false);
+    showConnecting(false);
+  } catch (e) {
+    updateStatus(`Error stopping session: ${e}`);
+  }
+};
+
+async function startSessionAutomatically() {
+  if (!isSessionActive) {
+    try {
+      showConnecting(true);
+      await createSession();
+      await startStreaming();
+      isSessionActive = true;
+    } catch (e) {
+      updateStatus(`Error starting session: ${e}`);
+      isSessionActive = false;
+      showConnecting(false);
+    }
+  } else {
+    try {
+      await stopSession();
+      isSessionActive = false;
+    } catch (e) {
+      updateStatus(`Error stopping session: ${e}`);
+    }
+  }
+}
+
+const startVoiceAutomatically = async () => {
+  if (!audioContext) await initVoice();
+  isVoiceOn = !isVoiceOn;
+  voiceBtn.textContent = isVoiceOn ? '🔴 Listening...' : '🎤 Voice';
 };
 
 // Event Listeners and Initialization
 document.addEventListener('DOMContentLoaded', () => {
   talkBtn.onclick = () => {
-    if (taskInput.value.trim()) {
-      sendText(taskInput.value);
-      taskInput.value = '';
-    }
+    const text = taskInput.value.trim();
+    if (text) sendText(text);
+    taskInput.value = "";
   };
 
-  voiceBtn.onclick = async () => {
-    if (!isVoiceOn) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioContext = new AudioContext();
-        analyser = audioContext.createAnalyser();
-        const source = audioContext.createMediaStreamSource(stream);
-        source.connect(analyser);
-        
-        mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-        mediaRecorder.onstop = processAudio;
-        
-        recording = true;
-        mediaRecorder.start();
-        voiceBtn.style.backgroundColor = '#ef4444';
-        
-        const checkSilence = () => {
-          if (!recording) return;
-          const volume = checkVolume();
-          if (volume < 20) {
-            silenceCounter++;
-            if (silenceCounter > 50) {
-              mediaRecorder.stop();
-              recording = false;
-              voiceBtn.style.backgroundColor = '#3b82f6';
-              silenceCounter = 0;
-              return;
-            }
-          } else {
-            silenceCounter = 0;
-          }
-          requestAnimationFrame(checkSilence);
-        };
-        checkSilence();
-        
-      } catch (err) {
-        updateStatus(`Microphone error: ${err}`);
-      }
-    } else {
-      if (recording) {
-        mediaRecorder.stop();
-        recording = false;
-        voiceBtn.style.backgroundColor = '#3b82f6';
-      }
-    }
-    isVoiceOn = !isVoiceOn;
-  };
+  voiceBtn.onclick = startVoiceAutomatically;
 
-  createSession().then(startStreaming);
+  startSessionAutomatically();
+});
+
+window.addEventListener('beforeunload', () => {
+  if (isSessionActive) stopSession();
 }); 
